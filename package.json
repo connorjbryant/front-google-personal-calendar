@@ -1,0 +1,19 @@
+{
+  "name": "front-google-personal-calendar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "@frontapp/plugin-sdk": "^1.10.0",
+    "ical.js": "^2.2.1",
+    "jquery": "^4.0.0"
+  }
+}
