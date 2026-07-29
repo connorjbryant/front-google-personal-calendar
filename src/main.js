@@ -29,6 +29,183 @@ function showDebug(data) {
 }
 
 /**
+ * Parse an ICS file and save its events to Google Calendar.
+ */
+async function importIcsIntoGoogleCalendar(
+  icsText,
+  frontSource
+) {
+  const parsedData = ICAL.parse(icsText);
+  const calendarComponent =
+    new ICAL.Component(parsedData);
+
+  const eventComponents =
+    calendarComponent.getAllSubcomponents("vevent");
+
+  const importedEvents = [];
+
+  for (const eventComponent of eventComponents) {
+    const icalEvent = new ICAL.Event(eventComponent);
+
+    const result = await saveIcsEventToGoogle(
+      icalEvent,
+      frontSource
+    );
+
+    importedEvents.push(result);
+  }
+
+  return importedEvents;
+}
+
+/**
+ * Convert one ICAL event into a Google Calendar event.
+ */
+async function saveIcsEventToGoogle(
+  icalEvent,
+  frontSource
+) {
+  const iCalUid = icalEvent.uid || "";
+
+  if (iCalUid) {
+    const existingEvent =
+      await findExistingGoogleEvent(iCalUid);
+
+    if (existingEvent) {
+      console.log(
+        "Google Calendar already contains this event:",
+        existingEvent
+      );
+
+      return {
+        summary:
+          existingEvent.summary ||
+          icalEvent.summary ||
+          "Calendar event",
+        googleEventId: existingEvent.id,
+        status: "already-existed"
+      };
+    }
+  }
+
+  const googleEvent = {
+    summary:
+      icalEvent.summary || "Calendar event",
+
+    description:
+      icalEvent.description || "",
+
+    location:
+      icalEvent.location || "",
+
+    start: convertIcalDateToGoogle(
+      icalEvent.startDate
+    ),
+
+    end: convertIcalDateToGoogle(
+      icalEvent.endDate || icalEvent.startDate
+    ),
+
+    extendedProperties: {
+      private: {
+        frontConversationId: String(
+          frontSource.conversationId || ""
+        ),
+        frontMessageId: String(
+          frontSource.messageId || ""
+        ),
+        frontAttachmentId: String(
+          frontSource.attachmentId || ""
+        ),
+        originalIcalUid: String(iCalUid)
+      }
+    }
+  };
+
+  console.log(
+    "Sending event to Google Calendar:",
+    googleEvent
+  );
+
+  const response =
+    await gapi.client.calendar.events.insert({
+      calendarId: "primary",
+      resource: googleEvent
+    });
+
+  console.log(
+    "Google Calendar event created:",
+    response.result
+  );
+
+  return {
+    summary:
+      response.result.summary ||
+      googleEvent.summary,
+    googleEventId: response.result.id,
+    htmlLink: response.result.htmlLink || null,
+    status: "created"
+  };
+}
+
+/**
+ * Convert an ICAL.js date into Google's event format.
+ */
+function convertIcalDateToGoogle(icalDate) {
+  if (!icalDate) {
+    throw new Error(
+      "The calendar event is missing a date."
+    );
+  }
+
+  if (icalDate.isDate) {
+    return {
+      date: formatIcalDate(icalDate)
+    };
+  }
+
+  return {
+    dateTime:
+      icalDate.toJSDate().toISOString()
+  };
+}
+
+/**
+ * Format an all-day ICAL date as YYYY-MM-DD.
+ */
+function formatIcalDate(icalDate) {
+  const year = String(icalDate.year);
+
+  const month = String(
+    icalDate.month
+  ).padStart(2, "0");
+
+  const day = String(
+    icalDate.day
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Look for an event already saved with the same ICS UID.
+ */
+async function findExistingGoogleEvent(iCalUid) {
+  const response =
+    await gapi.client.calendar.events.list({
+      calendarId: "primary",
+      iCalUID: iCalUid,
+      maxResults: 1,
+      singleEvents: true
+    });
+
+  const matches =
+    response.result.items || [];
+
+  return matches[0] || null;
+}
+
+/**
  * Initialize the Google Calendar API.
  */
 function initializeGoogle() {
@@ -330,18 +507,45 @@ async function syncCalendarInvites(context) {
     console.log("ICS contents:", icsText);
 
     setStatus(
-      `Successfully downloaded ${filename}. Ready to send it to Google Calendar.`
+      `Downloaded ${filename}. Reading the calendar invitation...`
+    );
+
+    const importedEvents = await importIcsIntoGoogleCalendar(
+      icsText,
+      {
+        conversationId: context.conversation?.id || "",
+        messageId: matchingMessage.id,
+        attachmentId: matchingAttachment.id
+      }
+    );
+
+    if (importedEvents.length === 0) {
+      setStatus(
+        "The ICS file was downloaded, but it did not contain a calendar event."
+      );
+
+      showDebug({
+        stage: "ICS parsing",
+        filename,
+        eventsFound: 0
+      });
+
+      return;
+    }
+
+    setStatus(
+      importedEvents.length === 1
+        ? `"${importedEvents[0].summary}" was saved to Google Calendar.`
+        : `${importedEvents.length} events were saved to Google Calendar.`
     );
 
     showDebug({
-      stage: "ICS downloaded",
-      conversationId:
-        context.conversation?.id || null,
+      stage: "Google Calendar import complete",
+      conversationId: context.conversation?.id || null,
       messageId: matchingMessage.id,
       attachmentId: matchingAttachment.id,
       filename,
-      fileType: file.type,
-      fileSize: file.size
+      importedEvents
     });
   } catch (error) {
     setStatus(
