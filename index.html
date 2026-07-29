@@ -2,32 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>front-google-personal-calendar</title>
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="%BASE_URL%favicon.svg"
+    />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>Front to Google Calendar</title>
   </head>
+
   <body>
-    <div id="app"></div>
-    <button id="login">Connect Google Calendar</button>
-    <p>
-      Front's calendar integration requires a Google Workspace or
-      Microsoft work account. Because Flex Rock email is hosted through
-      Hostinger, this plugin saves meeting invitations to Google Calendar
-      instead.
-    </p>
+    <main id="app">
+      <header>
+        <h1>Front to Google Calendar</h1>
 
-    <p>
-      Use <strong>flexrockutvperformance@gmail.com</strong> to access the
-      shared Flex Rock calendar.
-    </p>
+        <p>
+          Import meeting invitations from Front into Google Calendar.
+        </p>
+      </header>
 
-    <p>Open a meeting for the Google Calendar and use the button to begin.</p>
+      <section aria-labelledby="instructions-heading">
+        <h2 id="instructions-heading">How to import a meeting</h2>
 
-    <small>Author: Connor Bryant</small>
+        <ol>
+          <li>Open the email containing the meeting invitation.</li>
+          <li>Open this plugin in the Front sidebar.</li>
+          <li>Connect Google Calendar to import the meeting.</li>
+        </ol>
+      </section>
 
-    <p id="status">Loading plugin...</p>
+      <button id="login" type="button">
+        Connect Google Calendar
+      </button>
 
-    <pre id="debug"></pre>
+      <p id="status" role="status" aria-live="polite">
+        Open a conversation containing a meeting invitation.
+      </p>
+
+      <footer>
+        <small>Built by Connor Bryant</small>
+      </footer>
+    </main>
+
     <script src="https://accounts.google.com/gsi/client"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script type="module" src="/src/main.js"></script>
