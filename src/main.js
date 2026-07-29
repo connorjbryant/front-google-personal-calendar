@@ -10,22 +10,44 @@ const DISCOVERY =
 const SCOPES =
   "https://www.googleapis.com/auth/calendar.events";
 
-let tokenClient;
+let tokenClient = null;
 let googleConnected = false;
 let currentFrontContext = null;
 
+/**
+ * Update the visible status message.
+ */
+function setStatus(message) {
+  $("#status").text(message);
+}
+
+/**
+ * Display debugging information inside the plugin.
+ */
+function showDebug(data) {
+  $("#debug").text(JSON.stringify(data, null, 2));
+}
+
+/**
+ * Initialize the Google Calendar API.
+ */
 function initializeGoogle() {
+  setStatus("Initializing Google Calendar...");
+
   if (typeof gapi === "undefined") {
+    setStatus("The Google API script did not load.");
     console.error("The Google API script did not load.");
     return;
   }
 
   if (typeof google === "undefined") {
+    setStatus("Google Identity Services did not load.");
     console.error("Google Identity Services did not load.");
     return;
   }
 
   if (!CLIENT_ID) {
+    setStatus("The Google OAuth client ID is missing.");
     console.error("VITE_GOOGLE_CLIENT_ID is missing.");
     return;
   }
@@ -43,103 +65,207 @@ function initializeGoogle() {
       });
 
       console.log("Google API initialized");
+
       $("#login").prop("disabled", false);
+
+      setStatus("Waiting for Front context...");
     } catch (error) {
+      setStatus("Google Calendar initialization failed.");
+      showDebug({
+        stage: "Google initialization",
+        error: error?.message || String(error)
+      });
+
       console.error("Google initialization failed:", error);
     }
   });
 }
 
+/**
+ * Connect the user to Google Calendar.
+ */
 $("#login").prop("disabled", true);
 
 $("#login").on("click", function () {
   if (!tokenClient) {
-    console.error("Google Calendar is not ready yet.");
+    setStatus("Google Calendar is not ready yet.");
     return;
   }
 
-  tokenClient.callback = async function (resp) {
-    console.log("Google auth response:", resp);
+  setStatus("Opening Google sign-in...");
 
-    if (resp.error) {
-      console.error("Google auth failed:", resp);
+  tokenClient.callback = async function (response) {
+    console.log("Google auth response:", response);
+
+    if (response.error) {
+      setStatus("Google authorization failed.");
+
+      showDebug({
+        stage: "Google authorization",
+        error: response.error,
+        errorDescription: response.error_description || null
+      });
+
+      console.error("Google auth failed:", response);
       return;
     }
 
     googleConnected = true;
+
+    $("#login")
+      .prop("disabled", true)
+      .text("Google Calendar Connected");
+
     console.log("Google Calendar connected");
 
     if (currentFrontContext?.type === "singleConversation") {
+      setStatus(
+        "Google Calendar connected. Preparing the selected conversation..."
+      );
+
       await syncCalendarInvites(currentFrontContext);
+    } else {
+      setStatus(
+        "Google Calendar connected. Open a Front conversation containing an ICS invitation."
+      );
     }
 
-    const events = [];
-    let pageToken = null;
-
-    try {
-      do {
-        const response =
-          await gapi.client.calendar.events.list({
-            calendarId: "primary",
-            singleEvents: true,
-            orderBy: "startTime",
-            timeMin: new Date().toISOString(),
-            pageToken: pageToken
-          });
-
-        events.push(...(response.result.items || []));
-        pageToken =
-          response.result.nextPageToken || null;
-      } while (pageToken);
-
-      console.log("Upcoming events:", events);
-    } catch (error) {
-      console.error("Event loading error:", error);
-    }
+    await loadUpcomingGoogleEvents();
   };
 
-  tokenClient.requestAccessToken();
+  tokenClient.requestAccessToken({
+    prompt: ""
+  });
 });
 
+/**
+ * Load all upcoming Google Calendar events.
+ */
+async function loadUpcomingGoogleEvents() {
+  const events = [];
+  let pageToken = null;
+
+  try {
+    do {
+      const response =
+        await gapi.client.calendar.events.list({
+          calendarId: "primary",
+          singleEvents: true,
+          orderBy: "startTime",
+          timeMin: new Date().toISOString(),
+          pageToken
+        });
+
+      events.push(...(response.result.items || []));
+
+      pageToken =
+        response.result.nextPageToken || null;
+    } while (pageToken);
+
+    console.log("Upcoming Google Calendar events:", events);
+  } catch (error) {
+    console.error("Event loading error:", error);
+  }
+}
+
+/**
+ * Listen for conversation changes inside Front.
+ */
 console.log("About to subscribe to Front context");
 console.log("Front SDK:", Front);
 
-Front.contextUpdates.subscribe(function (context) {
-  currentFrontContext = context;
+try {
+  Front.contextUpdates.subscribe(function (context) {
+    console.log("Front context received:", context);
 
-  $("#status").text(`Front context: ${context.type}`);
+    currentFrontContext = context;
 
-  $("#debug").text(
-    JSON.stringify(
-      {
-        type: context.type,
-        conversationId: context.conversation?.id || null,
-        conversationSubject: context.conversation?.subject || null
-      },
-      null,
-      2
-    )
-  );
+    showDebug({
+      contextId: context.id || null,
+      type: context.type || null,
+      conversationId:
+        context.conversation?.id || null,
+      conversationSubject:
+        context.conversation?.subject || null,
+      googleConnected
+    });
 
-  if (context.type !== "singleConversation") {
-    return;
-  }
+    if (context.type !== "singleConversation") {
+      setStatus(
+        `Front context: ${context.type || "unknown"}. Open one conversation to continue.`
+      );
 
-  if (!googleConnected) {
-    $("#status").text(
-      "Conversation detected. Connect Google Calendar to continue."
+      return;
+    }
+
+    if (!googleConnected) {
+      setStatus(
+        "Conversation detected. Connect Google Calendar to continue."
+      );
+
+      return;
+    }
+
+    setStatus(
+      "Conversation detected and Google Calendar connected."
     );
-    return;
-  }
 
-  $("#status").text(
-    "Conversation and Google Calendar are connected."
+    syncCalendarInvites(context).catch(function (error) {
+      setStatus("Could not process the selected conversation.");
+
+      showDebug({
+        stage: "Front conversation sync",
+        error: error?.message || String(error)
+      });
+
+      console.error(
+        "Front conversation sync failed:",
+        error
+      );
+    });
+  });
+} catch (error) {
+  setStatus("Could not subscribe to Front context.");
+
+  showDebug({
+    stage: "Front context subscription",
+    error: error?.message || String(error)
+  });
+
+  console.error(
+    "Front context subscription failed:",
+    error
   );
-});
+}
 
+/**
+ * Temporary sync function.
+ *
+ * Once Front context works, this will be expanded to:
+ * 1. Retrieve the conversation messages.
+ * 2. Find the ICS attachment.
+ * 3. Download and parse it.
+ * 4. Save the event to Google Calendar.
+ */
 async function syncCalendarInvites(context) {
-  console.log("Ready to sync this conversation for an ICS file");
-  console.log(context.conversation);
+  console.log(
+    "Ready to search this conversation for an ICS file:",
+    context.conversation
+  );
+
+  setStatus(
+    "Front conversation detected. Ready to search for an ICS invitation."
+  );
+
+  showDebug({
+    stage: "Ready to sync",
+    contextType: context.type,
+    conversationId:
+      context.conversation?.id || null,
+    conversationSubject:
+      context.conversation?.subject || null,
+    googleConnected
+  });
 }
 
 initializeGoogle();
