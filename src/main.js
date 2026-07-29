@@ -105,23 +105,36 @@ console.log("About to subscribe to Front context");
 console.log("Front SDK:", Front);
 
 Front.contextUpdates.subscribe(function (context) {
-  console.log("Front context changed:", context);
-
   currentFrontContext = context;
 
+  $("#status").text(`Front context: ${context.type}`);
+
+  $("#debug").text(
+    JSON.stringify(
+      {
+        type: context.type,
+        conversationId: context.conversation?.id || null,
+        conversationSubject: context.conversation?.subject || null
+      },
+      null,
+      2
+    )
+  );
+
   if (context.type !== "singleConversation") {
-    console.log("No single conversation selected");
     return;
   }
-
-  console.log("Selected conversation:", context.conversation);
 
   if (!googleConnected) {
-    console.log("Google Calendar is not connected");
+    $("#status").text(
+      "Conversation detected. Connect Google Calendar to continue."
+    );
     return;
   }
 
-  await syncCalendarInvites(context);
+  $("#status").text(
+    "Conversation and Google Calendar are connected."
+  );
 });
 
 async function syncCalendarInvites(context) {
