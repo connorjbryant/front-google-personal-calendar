@@ -71,6 +71,7 @@ function initializeGoogle() {
       setStatus("Waiting for Front context...");
     } catch (error) {
       setStatus("Google Calendar initialization failed.");
+
       showDebug({
         stage: "Google initialization",
         error: error?.message || String(error)
@@ -82,7 +83,7 @@ function initializeGoogle() {
 }
 
 /**
- * Connect the user to Google Calendar.
+ * Connect to Google Calendar.
  */
 $("#login").prop("disabled", true);
 
@@ -169,7 +170,7 @@ async function loadUpcomingGoogleEvents() {
 }
 
 /**
- * Listen for conversation changes inside Front.
+ * Listen for Front conversation changes.
  */
 console.log("About to subscribe to Front context");
 console.log("Front SDK:", Front);
@@ -192,7 +193,9 @@ try {
 
     if (context.type !== "singleConversation") {
       setStatus(
-        `Front context: ${context.type || "unknown"}. Open one conversation to continue.`
+        `Front context: ${
+          context.type || "unknown"
+        }. Open one conversation to continue.`
       );
 
       return;
@@ -239,13 +242,8 @@ try {
 }
 
 /**
- * Temporary sync function.
- *
- * Once Front context works, this will be expanded to:
- * 1. Retrieve the conversation messages.
- * 2. Find the ICS attachment.
- * 3. Download and parse it.
- * 4. Save the event to Google Calendar.
+ * Find and download the first ICS attachment
+ * in the selected Front conversation.
  */
 async function syncCalendarInvites(context) {
   if (context.type !== "singleConversation") {
@@ -253,7 +251,9 @@ async function syncCalendarInvites(context) {
     return;
   }
 
-  setStatus("Searching this conversation for an ICS invitation...");
+  setStatus(
+    "Searching this conversation for an ICS invitation..."
+  );
 
   try {
     const messages = await getAllFrontMessages(context);
@@ -264,6 +264,10 @@ async function syncCalendarInvites(context) {
     let matchingAttachment = null;
 
     for (const message of messages) {
+      console.log("Full Front message:", message);
+      console.log("Message keys:", Object.keys(message));
+      console.log("Message content:", message.content);
+
       const attachments = [
         ...(message.content?.attachments || []),
         ...(message.attachments || [])
@@ -285,11 +289,14 @@ async function syncCalendarInvites(context) {
     }
 
     if (!matchingMessage || !matchingAttachment) {
-      setStatus("No ICS invitation was found in this conversation.");
+      setStatus(
+        "No ICS invitation was found in this conversation."
+      );
 
       showDebug({
         stage: "Attachment search",
-        conversationId: context.conversation?.id || null,
+        conversationId:
+          context.conversation?.id || null,
         messagesChecked: messages.length,
         calendarAttachmentFound: false
       });
@@ -302,7 +309,9 @@ async function syncCalendarInvites(context) {
       matchingAttachment.filename ||
       "calendar invitation";
 
-    setStatus(`Found ${filename}. Downloading from Front...`);
+    setStatus(
+      `Found ${filename}. Downloading from Front...`
+    );
 
     const file = await context.downloadAttachment(
       matchingMessage.id,
@@ -326,7 +335,8 @@ async function syncCalendarInvites(context) {
 
     showDebug({
       stage: "ICS downloaded",
-      conversationId: context.conversation?.id || null,
+      conversationId:
+        context.conversation?.id || null,
       messageId: matchingMessage.id,
       attachmentId: matchingAttachment.id,
       filename,
@@ -334,7 +344,9 @@ async function syncCalendarInvites(context) {
       fileSize: file.size
     });
   } catch (error) {
-    setStatus("Could not retrieve the ICS invitation from Front.");
+    setStatus(
+      "Could not retrieve the ICS invitation from Front."
+    );
 
     showDebug({
       stage: "Front attachment retrieval",
@@ -345,6 +357,9 @@ async function syncCalendarInvites(context) {
   }
 }
 
+/**
+ * Retrieve every message page from the selected conversation.
+ */
 async function getAllFrontMessages(context) {
   const messages = [];
   let pageToken;
@@ -354,12 +369,16 @@ async function getAllFrontMessages(context) {
 
     messages.push(...(page.results || []));
 
-    pageToken = page.nextPageToken || undefined;
+    pageToken =
+      page.nextPageToken || undefined;
   } while (pageToken);
 
   return messages;
 }
 
+/**
+ * Determine whether a Front attachment is an ICS calendar file.
+ */
 function isCalendarAttachment(attachment) {
   const filename = String(
     attachment.name ||
@@ -380,43 +399,5 @@ function isCalendarAttachment(attachment) {
     contentType.includes("calendar")
   );
 }
-
-async function getAllFrontMessages(context) {
-  const messages = [];
-  let pageToken;
-
-  do {
-    const page = await context.listMessages(pageToken);
-
-    messages.push(...(page.results || []));
-
-    pageToken = page.nextPageToken || undefined;
-  } while (pageToken);
-
-  return messages;
-}
-
-function isCalendarAttachment(attachment) {
-  const filename = String(
-    attachment.name ||
-    attachment.filename ||
-    ""
-  ).toLowerCase();
-
-  const contentType = String(
-    attachment.contentType ||
-    attachment.content_type ||
-    attachment.type ||
-    ""
-  ).toLowerCase();
-
-  return (
-    filename.endsWith(".ics") ||
-    contentType === "text/calendar" ||
-    contentType.includes("calendar")
-  );
-}
-
-initializeGoogle();
 
 initializeGoogle();
