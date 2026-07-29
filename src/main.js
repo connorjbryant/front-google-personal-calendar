@@ -104,7 +104,7 @@ $("#login").on("click", function () {
 console.log("About to subscribe to Front context");
 console.log("Front SDK:", Front);
 
-Front.contextUpdates.subscribe(async function (context) {
+Front.contextUpdates.subscribe(function (context) {
   console.log("Front context changed:", context);
 
   currentFrontContext = context;
