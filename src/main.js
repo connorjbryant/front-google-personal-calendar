@@ -264,10 +264,10 @@ async function syncCalendarInvites(context) {
     let matchingAttachment = null;
 
     for (const message of messages) {
-      const attachments =
-        message.content?.attachments ||
-        message.attachments ||
-        [];
+      const attachments = [
+        ...(message.content?.attachments || []),
+        ...(message.attachments || [])
+      ];
 
       console.log("Message attachments:", attachments);
 
@@ -381,12 +381,12 @@ function isCalendarAttachment(attachment) {
   );
 }
 
-async function getAllFrontMessages() {
+async function getAllFrontMessages(context) {
   const messages = [];
-  let pageToken = undefined;
+  let pageToken;
 
   do {
-    const page = await Front.listMessages(pageToken);
+    const page = await context.listMessages(pageToken);
 
     messages.push(...(page.results || []));
 
@@ -398,14 +398,15 @@ async function getAllFrontMessages() {
 
 function isCalendarAttachment(attachment) {
   const filename = String(
-    attachment.filename ||
     attachment.name ||
+    attachment.filename ||
     ""
   ).toLowerCase();
 
   const contentType = String(
     attachment.contentType ||
     attachment.content_type ||
+    attachment.type ||
     ""
   ).toLowerCase();
 
@@ -415,5 +416,7 @@ function isCalendarAttachment(attachment) {
     contentType.includes("calendar")
   );
 }
+
+initializeGoogle();
 
 initializeGoogle();
