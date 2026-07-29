@@ -256,83 +256,85 @@ async function syncCalendarInvites(context) {
   setStatus("Searching this conversation for an ICS invitation...");
 
   try {
-    const messages = await getAllFrontMessages();
+    const messages = await getAllFrontMessages(context);
 
     console.log("Front messages:", messages);
 
-    const calendarAttachments = [];
+    let matchingMessage = null;
+    let matchingAttachment = null;
 
-    messages.forEach(function (message) {
-      const attachments = message.attachments || [];
+    for (const message of messages) {
+      const attachments =
+        message.content?.attachments ||
+        message.attachments ||
+        [];
 
-      attachments.forEach(function (attachment) {
-        console.log("Front attachment:", attachment);
+      console.log("Message attachments:", attachments);
 
+      for (const attachment of attachments) {
         if (isCalendarAttachment(attachment)) {
-          calendarAttachments.push({
-            message,
-            attachment
-          });
+          matchingMessage = message;
+          matchingAttachment = attachment;
+          break;
         }
-      });
-    });
+      }
 
-    if (calendarAttachments.length === 0) {
+      if (matchingAttachment) {
+        break;
+      }
+    }
+
+    if (!matchingMessage || !matchingAttachment) {
       setStatus("No ICS invitation was found in this conversation.");
 
       showDebug({
         stage: "Attachment search",
         conversationId: context.conversation?.id || null,
         messagesChecked: messages.length,
-        calendarAttachmentsFound: 0
+        calendarAttachmentFound: false
       });
 
       return;
     }
 
-    const match = calendarAttachments[0];
-
-    const attachmentName =
-      match.attachment.filename ||
-      match.attachment.name ||
+    const filename =
+      matchingAttachment.name ||
+      matchingAttachment.filename ||
       "calendar invitation";
 
-    setStatus(`Found ${attachmentName}. Downloading it from Front...`);
+    setStatus(`Found ${filename}. Downloading from Front...`);
 
-    const file = await Front.downloadAttachment(
-      match.message.id,
-      match.attachment.id
+    const file = await context.downloadAttachment(
+      matchingMessage.id,
+      matchingAttachment.id
     );
 
     if (!file) {
       throw new Error(
-        "Front found the attachment but did not return the file."
+        "Front found the ICS attachment but could not download it."
       );
     }
 
-    console.log("Downloaded ICS file:", file);
-
     const icsText = await file.text();
 
-    console.log("ICS file contents:");
-    console.log(icsText);
+    console.log("Downloaded ICS file:", file);
+    console.log("ICS contents:", icsText);
 
     setStatus(
-      `Successfully downloaded ${attachmentName}. Ready to import it into Google Calendar.`
+      `Successfully downloaded ${filename}. Ready to send it to Google Calendar.`
     );
 
     showDebug({
       stage: "ICS downloaded",
       conversationId: context.conversation?.id || null,
-      messageId: match.message.id,
-      attachmentId: match.attachment.id,
-      filename: file.name,
+      messageId: matchingMessage.id,
+      attachmentId: matchingAttachment.id,
+      filename,
       fileType: file.type,
-      fileSize: file.size,
-      calendarAttachmentsFound: calendarAttachments.length
+      fileSize: file.size
     });
   } catch (error) {
-    setStatus("Could not retrieve the calendar invitation from Front.");
+    setStatus("Could not retrieve the ICS invitation from Front.");
 
     showDebug({
       stage: "Front attachment retrieval",
@@ -341,6 +343,42 @@ async function syncCalendarInvites(context) {
 
     console.error("ICS attachment error:", error);
   }
+}
+
+async function getAllFrontMessages(context) {
+  const messages = [];
+  let pageToken;
+
+  do {
+    const page = await context.listMessages(pageToken);
+
+    messages.push(...(page.results || []));
+
+    pageToken = page.nextPageToken || undefined;
+  } while (pageToken);
+
+  return messages;
+}
+
+function isCalendarAttachment(attachment) {
+  const filename = String(
+    attachment.name ||
+    attachment.filename ||
+    ""
+  ).toLowerCase();
+
+  const contentType = String(
+    attachment.contentType ||
+    attachment.content_type ||
+    attachment.type ||
+    ""
+  ).toLowerCase();
+
+  return (
+    filename.endsWith(".ics") ||
+    contentType === "text/calendar" ||
+    contentType.includes("calendar")
+  );
 }
 
 async function getAllFrontMessages() {
