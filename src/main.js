@@ -191,18 +191,47 @@ function formatIcalDate(icalDate) {
  * Look for an event already saved with the same ICS UID.
  */
 async function findExistingGoogleEvent(iCalUid) {
-  const response =
+  if (!iCalUid) {
+    return null;
+  }
+
+  // First check Google's native iCalUID field. This catches events that
+  // already exist in Google Calendar because they were imported/received
+  // through another calendar workflow.
+  const nativeResponse =
     await gapi.client.calendar.events.list({
       calendarId: "primary",
       iCalUID: iCalUid,
       maxResults: 1,
-      singleEvents: true
+      singleEvents: true,
+      showDeleted: false
     });
 
-  const matches =
-    response.result.items || [];
+  const nativeMatches =
+    nativeResponse.result.items || [];
 
-  return matches[0] || null;
+  if (nativeMatches.length > 0) {
+    return nativeMatches[0];
+  }
+
+  // Events created by this plugin use events.insert(). Google assigns those
+  // events its own iCalUID, so we also search the private property where the
+  // original invitation UID is stored. This prevents the same Front invite
+  // from being inserted again when the conversation is reopened.
+  const privateResponse =
+    await gapi.client.calendar.events.list({
+      calendarId: "primary",
+      privateExtendedProperty:
+        `originalIcalUid=${iCalUid}`,
+      maxResults: 1,
+      singleEvents: true,
+      showDeleted: false
+    });
+
+  const privateMatches =
+    privateResponse.result.items || [];
+
+  return privateMatches[0] || null;
 }
 
 
@@ -749,11 +778,34 @@ async function syncCalendarInvites(context) {
       return;
     }
 
-    setStatus(
-      importedEvents.length === 1
-        ? `"${importedEvents[0].summary}" was saved to Google Calendar.`
-        : `${importedEvents.length} events were saved to Google Calendar.`
+    const createdEvents = importedEvents.filter(
+      (event) => event.status === "created"
     );
+
+    const existingEvents = importedEvents.filter(
+      (event) => event.status === "already-existed"
+    );
+
+    if (
+      importedEvents.length === 1 &&
+      existingEvents.length === 1
+    ) {
+      setStatus(
+        `"${existingEvents[0].summary}" is already on Google Calendar. Nothing was added.`
+      );
+    } else if (
+      importedEvents.length === 1 &&
+      createdEvents.length === 1
+    ) {
+      setStatus(
+        `"${createdEvents[0].summary}" was saved to Google Calendar.`
+      );
+    } else {
+      setStatus(
+        `${createdEvents.length} event${createdEvents.length === 1 ? "" : "s"} added; ` +
+        `${existingEvents.length} already on Google Calendar.`
+      );
+    }
 
     showDebug({
       stage: "Google Calendar import complete",
