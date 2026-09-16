@@ -11,7 +11,7 @@
       <header class="app-header">
         <div>
           <h1>Calendar</h1>
-          <p>Import invitations from Front or create and share a new Google Calendar meeting.</p>
+          <p>Import invitations from Front to your Google Calendar or create and share a new Google Calendar meeting.</p>
         </div>
       </header>
 
@@ -22,7 +22,8 @@
 
       <section id="import-panel" class="panel is-active">
         <h2>Import from this conversation</h2>
-        <p class="muted">Open an email containing an ICS invitation, then connect Google Calendar. Existing import behavior is unchanged.</p>
+        <p class="muted">Open an email containing an ICS invitation, then connect Google Calendar.</p>
+        <div id="import-result" class="meeting-result" hidden></div>
       </section>
 
       <section id="create-panel" class="panel" hidden>
