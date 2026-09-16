@@ -539,7 +539,10 @@ $("#login").on("click", function () {
 
     $("#login")
       .prop("disabled", true)
-      .text("Google Calendar Connected");
+      .addClass("is-connected")
+      .text("✓ Google Calendar Connected");
+
+    $("#calendar-actions").prop("hidden", false);
 
     console.log("Google Calendar connected");
 

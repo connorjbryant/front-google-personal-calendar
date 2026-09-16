@@ -236,3 +236,45 @@ footer {
   padding-top: 12px;
   border-top: 1px solid #4b4b4b;
 }
+
+/* Google connection prerequisite */
+.connection-card {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+.connection-copy {
+  margin-bottom: 12px;
+}
+.step-label {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.connection-card #status {
+  margin-bottom: 0;
+}
+.connect-button.is-connected {
+  background: #437b1b;
+}
+#calendar-actions[hidden] {
+  display: none !important;
+}
+footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.footer-logo {
+  width: 160px;
+  max-width: 70%;
+  height: auto;
+  object-fit: contain;
+}
