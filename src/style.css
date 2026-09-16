@@ -1,5 +1,7 @@
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap");
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+  font-family: "Exo 2", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #202124;
   background: #fff;
@@ -9,11 +11,23 @@
 
 * {
   box-sizing: border-box;
+  border-radius: 0 !important;
 }
+
+html,
+body,
+button,
+input,
+textarea {
+  font-family: "Exo 2", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 body {
   margin: 0;
   background: #fff;
 }
+
 button,
 input,
 textarea {
@@ -28,26 +42,74 @@ textarea {
   padding: 18px;
 }
 
+/* Header */
+
 .app-header {
   margin-bottom: 16px;
 }
+
 h1 {
   margin: 0 0 5px;
   font-size: 22px;
   line-height: 1.2;
 }
+
 h2 {
   margin: 0 0 8px;
   font-size: 15px;
 }
+
 p {
   margin: 0;
   line-height: 1.45;
 }
+
 .muted {
   color: #6b7280;
   font-size: 13px;
 }
+
+/* Google connection prerequisite */
+
+.connection-card {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.connection-copy {
+  margin-bottom: 12px;
+}
+
+.step-label {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connection-card #status {
+  margin-bottom: 0;
+}
+
+.connect-button {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.connect-button.is-connected {
+  background: #437b1b;
+}
+
+#calendar-actions[hidden] {
+  display: none !important;
+}
+
+/* Tabs */
 
 .tabs {
   display: flex;
@@ -55,83 +117,98 @@ p {
   padding: 4px;
   margin-bottom: 18px;
   background: #f3f4f6;
-  border-radius: 8px;
 }
+
 .tab {
   flex: 1;
   border: 0;
-  border-radius: 6px;
   padding: 9px 10px;
   background: transparent;
   cursor: pointer;
   color: #4b5563;
   font-weight: 600;
 }
+
 .tab.is-active {
   background: #fff;
   color: #111827;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
+
+/* Panels */
+
 .panel {
   margin-bottom: 16px;
 }
+
 .panel[hidden] {
   display: none !important;
 }
+
+/* Meeting form */
 
 #meeting-form {
   display: flex;
   flex-direction: column;
   gap: 13px;
 }
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+
 label {
   color: #374151;
   font-size: 12px;
   font-weight: 700;
 }
+
 .label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
+
 input[type="text"],
 input[type="date"],
 input[type="time"],
 textarea {
   width: 100%;
   border: 1px solid #d1d5db;
-  border-radius: 7px;
   padding: 9px 10px;
   color: #111827;
   background: #fff;
   outline: none;
 }
+
 input:focus,
 textarea:focus {
   border-color: #071b81;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
 }
+
 textarea {
   resize: vertical;
 }
+
 small {
   color: #6b7280;
   line-height: 1.35;
 }
+
 .checkbox-field {
   padding: 2px 0;
 }
+
 .checkbox-field label {
   display: flex;
   align-items: center;
@@ -139,23 +216,22 @@ small {
   font-weight: 600;
 }
 
+/* Buttons */
+
 .primary-button {
   border: 0;
-  border-radius: 7px;
   padding: 10px 13px;
   background: #071b81;
   color: #fff;
   font-weight: 700;
   cursor: pointer;
 }
+
 .primary-button:disabled {
   opacity: 0.55;
   cursor: default;
 }
-.connect-button {
-  width: 100%;
-  margin-top: 4px;
-}
+
 .text-button {
   border: 0;
   padding: 0;
@@ -166,14 +242,18 @@ small {
   cursor: pointer;
 }
 
+/* Status */
+
 #status {
   margin-top: 12px;
   padding: 10px 11px;
-  border-radius: 7px;
   background: #f3f4f6;
   color: #4b5563;
   font-size: 12px;
 }
+
+/* Meeting results */
+
 .meeting-result {
   display: flex;
   flex-direction: column;
@@ -181,100 +261,85 @@ small {
   margin-top: 14px;
   padding: 2px;
   border: 1px solid #4b4b4b;
-  border-radius: 8px;
   background: #f0f5fd;
   font-size: 13px;
 }
+
 .result-links {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 5px;
 }
+
 .result-links a {
   color: #071b81;
   font-weight: 700;
   text-decoration: none;
 }
 
-.debug-details {
-  margin-top: 14px;
-  color: #6b7280;
-  font-size: 11px;
-}
-#debug {
-  max-height: 220px;
-  overflow: auto;
-  padding: 9px;
-  border-radius: 6px;
-  background: #111827;
-  color: #f9fafb;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-footer {
-  margin-top: 18px;
-  text-align: center;
+.result-links a:hover {
+  text-decoration: underline;
 }
 
-@media (max-width: 420px) {
-  #app {
-    padding: 14px;
-  }
-  .field-row {
-    grid-template-columns: 1fr;
-  }
-}
+/* Imported calendar events */
 
 .import-result-event {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
+
 .import-result-event + .import-result-event {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid #4b4b4b;
 }
 
-/* Google connection prerequisite */
-.connection-card {
-  margin-bottom: 18px;
-  padding: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #f9fafb;
-}
-.connection-copy {
-  margin-bottom: 12px;
-}
-.step-label {
-  display: inline-block;
-  margin-bottom: 5px;
+/* Debug */
+
+.debug-details {
+  margin-top: 14px;
   color: #6b7280;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  font-size: 11px;
 }
-.connection-card #status {
-  margin-bottom: 0;
+
+#debug {
+  max-height: 220px;
+  overflow: auto;
+  padding: 9px;
+  background: #111827;
+  color: #f9fafb;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
-.connect-button.is-connected {
-  background: #437b1b;
-}
-#calendar-actions[hidden] {
-  display: none !important;
-}
+
+/* Footer */
+
 footer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  margin-top: 18px;
+  text-align: center;
 }
+
 .footer-logo {
   width: 160px;
   max-width: 70%;
   height: auto;
   object-fit: contain;
+}
+
+/* Mobile */
+
+@media (max-width: 420px) {
+  #app {
+    padding: 14px;
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+  }
 }
