@@ -1,6 +1,7 @@
 import $ from "jquery";
 import Front from "@frontapp/plugin-sdk";
 import ICAL from "ical.js";
+import "./style.css";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -83,6 +84,7 @@ async function saveIcsEventToGoogle(
           icalEvent.summary ||
           "Calendar event",
         googleEventId: existingEvent.id,
+        htmlLink: existingEvent.htmlLink || null,
         status: "already-existed"
       };
     }
@@ -785,6 +787,27 @@ async function syncCalendarInvites(context) {
     const existingEvents = importedEvents.filter(
       (event) => event.status === "already-existed"
     );
+
+    // Show direct Google Calendar links for imported or already-existing events.
+    const linkedEvents = importedEvents.filter((event) => event.htmlLink);
+
+    if (linkedEvents.length) {
+      $("#import-result")
+        .prop("hidden", false)
+        .html(
+          linkedEvents.map((event) => `
+            <div class="import-result-event">
+              <strong>${$("<div>").text(event.summary || "Calendar event").html()}</strong>
+              <span>${event.status === "created" ? "Added to Google Calendar" : "Already on Google Calendar"}</span>
+              <div class="result-links">
+                <a href="${event.htmlLink}" target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>
+              </div>
+            </div>
+          `).join("")
+        );
+    } else {
+      $("#import-result").prop("hidden", true).empty();
+    }
 
     if (
       importedEvents.length === 1 &&
