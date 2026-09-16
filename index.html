@@ -2,52 +2,90 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="%BASE_URL%favicon.svg"
-    />
-
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Front to Google Calendar</title>
   </head>
-
   <body>
     <main id="app">
-      <header>
-        <h1>Front to Google Calendar</h1>
-
-        <p>
-          Import meeting invitations from Front into Google Calendar. This bypasses needing Microsoft Office/Google Workspace to use Front's calendar so regular Google accounts can save Front meetings.
-        </p>
+      <header class="app-header">
+        <div>
+          <h1>Calendar</h1>
+          <p>Import invitations from Front or create and share a new Google Calendar meeting.</p>
+        </div>
       </header>
 
-      <section aria-labelledby="instructions-heading">
-        <h2 id="instructions-heading">How to import a meeting</h2>
+      <div class="tabs" role="tablist" aria-label="Calendar actions">
+        <button class="tab is-active" id="tab-import" type="button" data-panel="import-panel">Import invite</button>
+        <button class="tab" id="tab-create" type="button" data-panel="create-panel">Create meeting</button>
+      </div>
 
-        <ol>
-          <li>Open the email containing the meeting invitation.</li>
-          <li>Open this plugin in the Front sidebar.</li>
-          <li>Connect Google Calendar to import the meeting.</li>
-        </ol>
+      <section id="import-panel" class="panel is-active">
+        <h2>Import from this conversation</h2>
+        <p class="muted">Open an email containing an ICS invitation, then connect Google Calendar. Existing import behavior is unchanged.</p>
       </section>
 
-      <button id="login" type="button">
-        Connect Google Calendar
-      </button>
+      <section id="create-panel" class="panel" hidden>
+        <form id="meeting-form">
+          <div class="field">
+            <label for="meeting-title">Meeting title</label>
+            <input id="meeting-title" name="title" type="text" required placeholder="Product meeting" />
+          </div>
 
-      <p id="status" role="status" aria-live="polite">
-        Open a conversation containing a meeting invitation.
-      </p>
+          <div class="field">
+            <label for="meeting-date">Date</label>
+            <input id="meeting-date" name="date" type="date" required />
+          </div>
 
-      <footer>
-        <small>Built by Connor Bryant</small>
-      </footer>
+          <div class="field-row">
+            <div class="field">
+              <label for="meeting-start">Start</label>
+              <input id="meeting-start" name="start" type="time" required />
+            </div>
+            <div class="field">
+              <label for="meeting-end">End</label>
+              <input id="meeting-end" name="end" type="time" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="meeting-guests">Guests</label>
+              <button id="add-front-recipients" class="text-button" type="button">Add from conversation</button>
+            </div>
+            <textarea id="meeting-guests" name="guests" rows="3" placeholder="person@example.com, another@example.com"></textarea>
+            <small>Separate email addresses with commas or new lines. Google will email invitations when the meeting is created.</small>
+          </div>
+
+          <div class="field">
+            <label for="meeting-location">Location</label>
+            <input id="meeting-location" name="location" type="text" placeholder="Conference room, phone call, etc." />
+          </div>
+
+          <div class="field checkbox-field">
+            <label><input id="meeting-google-meet" type="checkbox" /> Add a Google Meet video link</label>
+          </div>
+
+          <div class="field">
+            <label for="meeting-description">Description</label>
+            <textarea id="meeting-description" name="description" rows="4" placeholder="Meeting details"></textarea>
+          </div>
+
+          <button id="create-meeting" class="primary-button" type="submit">Create &amp; send invitations</button>
+        </form>
+
+        <div id="meeting-result" class="meeting-result" hidden></div>
+      </section>
+
+      <button id="login" class="primary-button connect-button" type="button">Connect Google Calendar</button>
+      <p id="status" role="status" aria-live="polite">Open a conversation containing a meeting invitation.</p>
+
+      <details class="debug-details">
+        <summary>Debug</summary>
+        <pre id="debug"></pre>
+      </details>
+
+      <footer><small>Built by Connor Bryant</small></footer>
     </main>
 
     <script src="https://accounts.google.com/gsi/client"></script>

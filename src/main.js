@@ -205,6 +205,222 @@ async function findExistingGoogleEvent(iCalUid) {
   return matches[0] || null;
 }
 
+
+/**
+ * Switch between the existing ICS importer and meeting creator.
+ */
+$(document).on("click", ".tab", function () {
+  const panelId = $(this).data("panel");
+
+  $(".tab").removeClass("is-active");
+  $(this).addClass("is-active");
+
+  $(".panel").removeClass("is-active").prop("hidden", true);
+  $(`#${panelId}`).addClass("is-active").prop("hidden", false);
+});
+
+/**
+ * Give the meeting form sensible defaults.
+ */
+function setMeetingDefaults() {
+  const now = new Date();
+  const start = new Date(now.getTime() + 60 * 60 * 1000);
+  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+  const localDate = [
+    start.getFullYear(),
+    String(start.getMonth() + 1).padStart(2, "0"),
+    String(start.getDate()).padStart(2, "0")
+  ].join("-");
+
+  const time = (date) =>
+    `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+  $("#meeting-date").val(localDate);
+  $("#meeting-start").val(time(start));
+  $("#meeting-end").val(time(end));
+}
+
+/**
+ * Turn the guest field into a clean, unique list of email addresses.
+ */
+function parseGuestEmails(value) {
+  return [...new Set(
+    String(value || "")
+      .split(/[\n,;]+/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  )];
+}
+
+/**
+ * Pull recipients from the currently selected Front conversation.
+ */
+async function getFrontConversationRecipients() {
+  if (currentFrontContext?.type !== "singleConversation") {
+    throw new Error("Open one Front conversation first.");
+  }
+
+  const recipients = [];
+  let pageToken;
+
+  do {
+    const page = await currentFrontContext.listRecipients(pageToken);
+    recipients.push(...(page.results || []));
+    pageToken = page.nextPageToken || undefined;
+  } while (pageToken);
+
+  return recipients;
+}
+
+$("#add-front-recipients").on("click", async function () {
+  try {
+    setStatus("Loading people from this Front conversation...");
+
+    const recipients = await getFrontConversationRecipients();
+    const foundEmails = recipients
+      .map((recipient) => recipient.email || recipient.handle || recipient.address || "")
+      .filter((value) => String(value).includes("@"));
+
+    const currentEmails = parseGuestEmails($("#meeting-guests").val());
+    const merged = [...new Set([...currentEmails, ...foundEmails])];
+
+    if (!merged.length) {
+      setStatus("No email recipients were available from this conversation.");
+      return;
+    }
+
+    $("#meeting-guests").val(merged.join(", "));
+    setStatus(`${foundEmails.length} conversation recipient(s) added to the guest list.`);
+  } catch (error) {
+    setStatus(error?.message || "Could not load conversation recipients.");
+    console.error("Front recipient loading failed:", error);
+  }
+});
+
+/**
+ * Create a real event in the connected user's primary Google Calendar.
+ * Guests receive normal Google Calendar invitations via sendUpdates=all.
+ */
+$("#meeting-form").on("submit", async function (event) {
+  event.preventDefault();
+
+  if (!googleConnected) {
+    setStatus("Connect Google Calendar before creating a meeting.");
+    return;
+  }
+
+  const title = $("#meeting-title").val().trim();
+  const date = $("#meeting-date").val();
+  const startTime = $("#meeting-start").val();
+  const endTime = $("#meeting-end").val();
+  const guestEmails = parseGuestEmails($("#meeting-guests").val());
+
+  if (!title || !date || !startTime || !endTime) {
+    setStatus("Add a title, date, start time, and end time.");
+    return;
+  }
+
+  const start = new Date(`${date}T${startTime}:00`);
+  const end = new Date(`${date}T${endTime}:00`);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    setStatus("The meeting end time must be after the start time.");
+    return;
+  }
+
+  const invalidEmails = guestEmails.filter(
+    (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  );
+
+  if (invalidEmails.length) {
+    setStatus(`Check the guest email address${invalidEmails.length > 1 ? "es" : ""}: ${invalidEmails.join(", ")}`);
+    return;
+  }
+
+  const resource = {
+    summary: title,
+    description: $("#meeting-description").val().trim(),
+    location: $("#meeting-location").val().trim(),
+    start: { dateTime: start.toISOString() },
+    end: { dateTime: end.toISOString() },
+    attendees: guestEmails.map((email) => ({ email })),
+    extendedProperties: {
+      private: {
+        createdFromFrontPlugin: "true",
+        frontConversationId: String(currentFrontContext?.conversation?.id || "")
+      }
+    }
+  };
+
+  const request = {
+    calendarId: "primary",
+    sendUpdates: guestEmails.length ? "all" : "none",
+    resource
+  };
+
+  if ($("#meeting-google-meet").is(":checked")) {
+    request.conferenceDataVersion = 1;
+    resource.conferenceData = {
+      createRequest: {
+        requestId: `front-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" }
+      }
+    };
+  }
+
+  try {
+    $("#create-meeting").prop("disabled", true).text("Creating meeting...");
+    setStatus("Creating the meeting in Google Calendar...");
+
+    const response = await gapi.client.calendar.events.insert(request);
+    const created = response.result;
+    const meetLink = created.hangoutLink || "";
+
+    const links = [];
+    if (created.htmlLink) {
+      links.push(`<a href="${created.htmlLink}" target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>`);
+    }
+    if (meetLink) {
+      links.push(`<a href="${meetLink}" target="_blank" rel="noopener noreferrer">Open Google Meet</a>`);
+    }
+
+    $("#meeting-result")
+      .prop("hidden", false)
+      .html(`
+        <strong>Meeting created</strong>
+        <span>${created.summary || title}</span>
+        ${guestEmails.length ? `<span>Invitations sent to ${guestEmails.length} guest${guestEmails.length === 1 ? "" : "s"}.</span>` : ""}
+        ${links.length ? `<div class="result-links">${links.join("")}</div>` : ""}
+      `);
+
+    setStatus(
+      guestEmails.length
+        ? "Meeting created in Google Calendar and invitations sent."
+        : "Meeting created in Google Calendar."
+    );
+
+    showDebug({
+      stage: "Google meeting created",
+      googleEventId: created.id,
+      htmlLink: created.htmlLink || null,
+      hangoutLink: meetLink || null,
+      attendees: guestEmails,
+      frontConversationId: currentFrontContext?.conversation?.id || null
+    });
+  } catch (error) {
+    const message = error?.result?.error?.message || error?.message || String(error);
+    setStatus(`Could not create the meeting: ${message}`);
+    showDebug({ stage: "Google meeting creation", error: message });
+    console.error("Google meeting creation failed:", error);
+  } finally {
+    $("#create-meeting").prop("disabled", false).text("Create & send invitations");
+  }
+});
+
+setMeetingDefaults();
+
 /**
  * Initialize the Google Calendar API.
  */
