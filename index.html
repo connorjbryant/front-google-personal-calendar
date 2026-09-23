@@ -70,6 +70,15 @@
               </select>
             </div>
 
+            <div class="field" id="meeting-repeat-end-field" hidden>
+              <label for="meeting-repeat-end">Repeat ends</label>
+              <select id="meeting-repeat-end" name="repeatEnd">
+                <option value="never">Never</option>
+                <option value="date">On a date</option>
+              </select>
+              <small>Choose Never to keep the series repeating indefinitely.</small>
+            </div>
+
             <div class="field" id="meeting-repeat-until-field" hidden>
               <label for="meeting-repeat-until">Repeat until</label>
               <input id="meeting-repeat-until" name="repeatUntil" type="date" />

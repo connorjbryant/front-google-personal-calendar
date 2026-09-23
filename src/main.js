@@ -272,27 +272,36 @@ function setMeetingDefaults() {
   $("#meeting-start").val(time(start));
   $("#meeting-end").val(time(end));
   $("#meeting-repeat").val("none");
+  $("#meeting-repeat-end").val("never");
   $("#meeting-repeat-until").val("");
+  $("#meeting-repeat-end-field").prop("hidden", true);
   $("#meeting-repeat-until-field").prop("hidden", true);
 }
 
 /**
- * Show the recurrence end date only when a repeating schedule is selected.
+ * Show recurrence controls only when a repeating schedule is selected.
+ * A series can run forever or stop on a selected date.
  */
-$("#meeting-repeat").on("change", function () {
-  const repeats = $(this).val() !== "none";
-  $("#meeting-repeat-until-field").prop("hidden", !repeats);
-  $("#meeting-repeat-until").prop("required", repeats);
+function updateRecurrenceEndFields() {
+  const repeats = $("#meeting-repeat").val() !== "none";
+  const endsOnDate = repeats && $("#meeting-repeat-end").val() === "date";
 
-  if (!repeats) {
+  $("#meeting-repeat-end-field").prop("hidden", !repeats);
+  $("#meeting-repeat-until-field").prop("hidden", !endsOnDate);
+  $("#meeting-repeat-until").prop("required", endsOnDate);
+
+  if (!endsOnDate) {
     $("#meeting-repeat-until").val("");
   }
-});
+}
+
+$("#meeting-repeat").on("change", updateRecurrenceEndFields);
+$("#meeting-repeat-end").on("change", updateRecurrenceEndFields);
 
 /**
  * Build the Google Calendar RRULE used for recurring meetings.
  */
-function buildRecurrenceRule(repeat, untilDate) {
+function buildRecurrenceRule(repeat, repeatEnd, untilDate) {
   if (repeat === "none") {
     return null;
   }
@@ -304,16 +313,25 @@ function buildRecurrenceRule(repeat, untilDate) {
   };
 
   const rule = rules[repeat];
-  if (!rule || !untilDate) {
+  if (!rule) {
     return null;
   }
 
-  // UNTIL is inclusive and Google Calendar expects UTC when DTSTART uses dateTime.
+  // Omitting UNTIL/COUNT makes the Google Calendar recurrence continue indefinitely.
+  if (repeatEnd === "never") {
+    return `RRULE:${rule}`;
+  }
+
+  if (!untilDate) {
+    return null;
+  }
+
+  // UNTIL is inclusive. Use the end of the selected day in UTC.
   const until = `${untilDate.replaceAll("-", "")}T235959Z`;
   return `RRULE:${rule};UNTIL=${until}`;
 }
 
-function recurrenceLabel(repeat, untilDate) {
+function recurrenceLabel(repeat, repeatEnd, untilDate) {
   const labels = {
     weekly: "Repeats weekly",
     biweekly: "Repeats every 2 weeks",
@@ -322,6 +340,10 @@ function recurrenceLabel(repeat, untilDate) {
 
   if (!labels[repeat]) {
     return "";
+  }
+
+  if (repeatEnd === "never") {
+    return `${labels[repeat]} indefinitely.`;
   }
 
   const formattedUntil = new Date(`${untilDate}T12:00:00`).toLocaleDateString(undefined, {
@@ -407,6 +429,7 @@ $("#meeting-form").on("submit", async function (event) {
   const startTime = $("#meeting-start").val();
   const endTime = $("#meeting-end").val();
   const repeat = $("#meeting-repeat").val();
+  const repeatEnd = $("#meeting-repeat-end").val();
   const repeatUntil = $("#meeting-repeat-until").val();
   const guestEmails = parseGuestEmails($("#meeting-guests").val());
 
@@ -423,17 +446,17 @@ $("#meeting-form").on("submit", async function (event) {
     return;
   }
 
-  if (repeat !== "none" && !repeatUntil) {
+  if (repeat !== "none" && repeatEnd === "date" && !repeatUntil) {
     setStatus("Choose when the recurring meeting should stop.");
     return;
   }
 
-  if (repeat !== "none" && repeatUntil < date) {
+  if (repeat !== "none" && repeatEnd === "date" && repeatUntil < date) {
     setStatus("The repeat-until date cannot be before the first meeting.");
     return;
   }
 
-  const recurrenceRule = buildRecurrenceRule(repeat, repeatUntil);
+  const recurrenceRule = buildRecurrenceRule(repeat, repeatEnd, repeatUntil);
 
   const invalidEmails = guestEmails.filter(
     (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -444,12 +467,16 @@ $("#meeting-form").on("submit", async function (event) {
     return;
   }
 
+  // Google requires an explicit IANA time zone for recurring events.
+  // Use the browser's local time zone so recurrence also follows daylight-saving changes.
+  const meetingTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
   const resource = {
     summary: title,
     description: $("#meeting-description").val().trim(),
     location: $("#meeting-location").val().trim(),
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    start: { dateTime: start.toISOString(), timeZone: meetingTimeZone },
+    end: { dateTime: end.toISOString(), timeZone: meetingTimeZone },
     attendees: guestEmails.map((email) => ({ email })),
     extendedProperties: {
       private: {
@@ -500,7 +527,7 @@ $("#meeting-form").on("submit", async function (event) {
       .html(`
         <strong>Meeting created</strong>
         <span>${created.summary || title}</span>
-        ${recurrenceRule ? `<span>${recurrenceLabel(repeat, repeatUntil)}</span>` : ""}
+        ${recurrenceRule ? `<span>${recurrenceLabel(repeat, repeatEnd, repeatUntil)}</span>` : ""}
         ${guestEmails.length ? `<span>Invitations sent to ${guestEmails.length} guest${guestEmails.length === 1 ? "" : "s"}.</span>` : ""}
         ${links.length ? `<div class="result-links">${links.join("")}</div>` : ""}
       `);
@@ -518,6 +545,7 @@ $("#meeting-form").on("submit", async function (event) {
       hangoutLink: meetLink || null,
       attendees: guestEmails,
       recurrence: recurrenceRule || null,
+      timeZone: meetingTimeZone,
       frontConversationId: currentFrontContext?.conversation?.id || null
     });
   } catch (error) {
