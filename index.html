@@ -61,6 +61,22 @@
             </div>
 
             <div class="field">
+              <label for="meeting-repeat">Repeat</label>
+              <select id="meeting-repeat" name="repeat">
+                <option value="none">Does not repeat</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+
+            <div class="field" id="meeting-repeat-until-field" hidden>
+              <label for="meeting-repeat-until">Repeat until</label>
+              <input id="meeting-repeat-until" name="repeatUntil" type="date" />
+              <small>The recurring series will include meetings through this date.</small>
+            </div>
+
+            <div class="field">
               <div class="label-row">
                 <label for="meeting-guests">Guests</label>
                 <button id="add-front-recipients" class="text-button" type="button">Add from conversation</button>

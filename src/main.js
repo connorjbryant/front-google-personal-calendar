@@ -271,6 +271,66 @@ function setMeetingDefaults() {
   $("#meeting-date").val(localDate);
   $("#meeting-start").val(time(start));
   $("#meeting-end").val(time(end));
+  $("#meeting-repeat").val("none");
+  $("#meeting-repeat-until").val("");
+  $("#meeting-repeat-until-field").prop("hidden", true);
+}
+
+/**
+ * Show the recurrence end date only when a repeating schedule is selected.
+ */
+$("#meeting-repeat").on("change", function () {
+  const repeats = $(this).val() !== "none";
+  $("#meeting-repeat-until-field").prop("hidden", !repeats);
+  $("#meeting-repeat-until").prop("required", repeats);
+
+  if (!repeats) {
+    $("#meeting-repeat-until").val("");
+  }
+});
+
+/**
+ * Build the Google Calendar RRULE used for recurring meetings.
+ */
+function buildRecurrenceRule(repeat, untilDate) {
+  if (repeat === "none") {
+    return null;
+  }
+
+  const rules = {
+    weekly: "FREQ=WEEKLY;INTERVAL=1",
+    biweekly: "FREQ=WEEKLY;INTERVAL=2",
+    monthly: "FREQ=MONTHLY;INTERVAL=1"
+  };
+
+  const rule = rules[repeat];
+  if (!rule || !untilDate) {
+    return null;
+  }
+
+  // UNTIL is inclusive and Google Calendar expects UTC when DTSTART uses dateTime.
+  const until = `${untilDate.replaceAll("-", "")}T235959Z`;
+  return `RRULE:${rule};UNTIL=${until}`;
+}
+
+function recurrenceLabel(repeat, untilDate) {
+  const labels = {
+    weekly: "Repeats weekly",
+    biweekly: "Repeats every 2 weeks",
+    monthly: "Repeats monthly"
+  };
+
+  if (!labels[repeat]) {
+    return "";
+  }
+
+  const formattedUntil = new Date(`${untilDate}T12:00:00`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+
+  return `${labels[repeat]} until ${formattedUntil}.`;
 }
 
 /**
@@ -346,6 +406,8 @@ $("#meeting-form").on("submit", async function (event) {
   const date = $("#meeting-date").val();
   const startTime = $("#meeting-start").val();
   const endTime = $("#meeting-end").val();
+  const repeat = $("#meeting-repeat").val();
+  const repeatUntil = $("#meeting-repeat-until").val();
   const guestEmails = parseGuestEmails($("#meeting-guests").val());
 
   if (!title || !date || !startTime || !endTime) {
@@ -360,6 +422,18 @@ $("#meeting-form").on("submit", async function (event) {
     setStatus("The meeting end time must be after the start time.");
     return;
   }
+
+  if (repeat !== "none" && !repeatUntil) {
+    setStatus("Choose when the recurring meeting should stop.");
+    return;
+  }
+
+  if (repeat !== "none" && repeatUntil < date) {
+    setStatus("The repeat-until date cannot be before the first meeting.");
+    return;
+  }
+
+  const recurrenceRule = buildRecurrenceRule(repeat, repeatUntil);
 
   const invalidEmails = guestEmails.filter(
     (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -384,6 +458,10 @@ $("#meeting-form").on("submit", async function (event) {
       }
     }
   };
+
+  if (recurrenceRule) {
+    resource.recurrence = [recurrenceRule];
+  }
 
   const request = {
     calendarId: "primary",
@@ -422,6 +500,7 @@ $("#meeting-form").on("submit", async function (event) {
       .html(`
         <strong>Meeting created</strong>
         <span>${created.summary || title}</span>
+        ${recurrenceRule ? `<span>${recurrenceLabel(repeat, repeatUntil)}</span>` : ""}
         ${guestEmails.length ? `<span>Invitations sent to ${guestEmails.length} guest${guestEmails.length === 1 ? "" : "s"}.</span>` : ""}
         ${links.length ? `<div class="result-links">${links.join("")}</div>` : ""}
       `);
@@ -438,6 +517,7 @@ $("#meeting-form").on("submit", async function (event) {
       htmlLink: created.htmlLink || null,
       hangoutLink: meetLink || null,
       attendees: guestEmails,
+      recurrence: recurrenceRule || null,
       frontConversationId: currentFrontContext?.conversation?.id || null
     });
   } catch (error) {

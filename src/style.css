@@ -18,7 +18,8 @@ html,
 body,
 button,
 input,
-textarea {
+textarea,
+select {
   font-family: "Exo 2", ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -30,7 +31,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -181,6 +183,7 @@ label {
 input[type="text"],
 input[type="date"],
 input[type="time"],
+select,
 textarea {
   width: 100%;
   border: 1px solid #d1d5db;
@@ -191,6 +194,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: #071b81;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
